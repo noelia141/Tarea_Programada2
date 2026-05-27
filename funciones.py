@@ -2,10 +2,10 @@
 #Ultima actualización: 17/05/2026
 #Documento de funciones
 
-from datetime import date
-import pickle
+from datetime import datetime, date
 from faker import Faker
 import random
+import pickle
 
 tiposSangre = ("O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-") #Tupla de tipos de sangre.
 
@@ -220,3 +220,98 @@ def reporteDonantesProvinciaHTML(codigoProvincia):
         return True
     except Exception:
         return False
+    
+def reporteTipoSangreProvinciaHTML(indiceTipoSangre, codigoProvincia, listaDonadores):
+    """
+    Genera un reporte HTML con los donantes activos de un tipo de sangre
+    y provincia específicos. Pensado para emergencias donde se necesita
+    localizar donadores que puedan donar de inmediato.
+    """
+    #Diccionario con los nombres de las provincias según su código numérico.
+    nombresProvincia = {
+        1: "San José",
+        2: "Alajuela",
+        3: "Cartago",
+        4: "Heredia",
+        5: "Guanacaste",
+        6: "Puntarenas",
+        7: "Limón"
+    }
+    #Obtener el nombre legible del tipo de sangre usando el índice en la tupla global.
+    nombreTipoSangre = tiposSangre[indiceTipoSangre]
+    #Obtener el nombre de la provincia, "Desconocida" si el código no existe.
+    provincia = nombresProvincia.get(codigoProvincia, "Desconocida")
+    #Filtrar donantes que cumplan las tres condiciones: provincia, tipo de sangre y activo.
+    donantesFiltrados = []
+    for donador in listaDonadores:
+        cedulaProvincia = int(donador[1][0]) 
+        esMismaProvincia = cedulaProvincia == codigoProvincia
+        esMismoTipoSangre = donador[2] == indiceTipoSangre 
+        esActivo = donador[8] == 1
+        if esMismaProvincia and esMismoTipoSangre and esActivo:
+            donantesFiltrados.append(donador)
+    #Obtener fecha y hora actual del sistema para el encabezado del reporte.
+    fechaHora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    #Título que incluye tipo de sangre y provincia.
+    titulo = f"Donantes Activos con Sangre {nombreTipoSangre} en {provincia}"
+    #Construir las filas de la tabla HTML recorriendo los donantes filtrados.
+    filas = ""
+    for donador in donantesFiltrados:
+        nombreCompleto = f"{donador[0][0]} {donador[0][1]} {donador[0][2]}"
+        cedula = donador[1]
+        fechaNacimiento = f"{donador[4][0]:02d}/{donador[4][1]:02d}/{donador[4][2]}"
+        telefono = donador[7]
+        correo = donador[6]
+        filas += f"""
+        <tr>
+            <td>{cedula}</td>
+            <td>{nombreCompleto}</td>
+            <td>{fechaNacimiento}</td>
+            <td>{telefono}</td>
+            <td>{correo}</td>
+        </tr>"""
+    #Si la lista está vacía se muestra un mensaje en lugar de una tabla vacía.
+    filasFinales = filas if donantesFiltrados else f'<tr><td colspan="5" class="sinDatos">No hay donantes activos con sangre {nombreTipoSangre} en {provincia}.</td></tr>'
+    html = f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <title>{titulo}</title>
+    <style>
+        body {{font-family: Arial, sans-serif; margin: 40px; background-color: #f9f9f9; color: #222;}}
+        h1 {{color: #b30000; text-align: center;}}
+        p {{text-align: center; color: #555;}}
+        table {{width: 100%; border-collapse: collapse; margin-top: 20px; background-color: #fff;}}
+        th {{background-color: #b30000; color: white; padding: 10px; text-align: left;}}
+        td {{padding: 8px 10px; border-bottom: 1px solid #ddd;}}
+        tr:hover {{background-color: #f1f1f1;}}
+        .sinDatos {{text-align: center; color: #888; padding: 20px;}}
+    </style>
+</head>
+<body>
+    <h1>{titulo}</h1>
+    <p>Fecha y hora de generación: {fechaHora}</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Cédula</th>
+                <th>Nombre Completo</th>
+                <th>Fecha de Nacimiento</th>
+                <th>Teléfono</th>
+                <th>Correo</th>
+            </tr>
+        </thead>
+        <tbody>
+            {filasFinales}
+        </tbody>
+    </table>
+</body>
+</html>"""
+    try:
+        nombreArchivo = f"reporte_sangre_{nombreTipoSangre.replace('+', 'pos').replace('-', 'neg')}_{provincia.lower().replace(' ', '_')}.html"
+        with open(nombreArchivo, "w", encoding="utf-8") as archivo:
+            archivo.write(html)
+        return True
+    except Exception:
+        return False
+    
