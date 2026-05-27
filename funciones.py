@@ -315,3 +315,89 @@ def reporteTipoSangreProvinciaHTML(indiceTipoSangre, codigoProvincia, listaDonad
     except Exception:
         return False
     
+def reporteMujeresDonanteONegativoHTML(listaDonadores):
+    """
+    Genera un reporte HTML con las mujeres donantes activas de tipo O-,
+    menores de 45 años, ordenadas por edad.
+    """
+    #Indice de O- en la tupla global tiposSangre = 1
+    indiceONegativo = tiposSangre.index("O-")
+    #Fecha actual para calcular edades
+    fechaHoy = datetime.now()
+    #Filtrar mujeres activas con sangre O- y menores de 45 años.
+    donantesFiltradas = []
+    for donador in listaDonadores:
+        esMujer = donador[3] == False
+        esONegativo = donador[2] == indiceONegativo
+        esActiva = donador[8] == 1
+        if esMujer and esONegativo and esActiva:
+            #Calcular edad exacta considerando si ya pasó el cumpleaños este año.
+            yaCumplioAnios = (fechaHoy.month, fechaHoy.day) >= (donador[4][1], donador[4][0])
+            edadActual = fechaHoy.year - donador[4][2] - (0 if yaCumplioAnios else 1)
+            if edadActual < 45: #Solo menores de 45 años
+                donantesFiltradas.append((donador, edadActual))#Guardar tupla (donador, edad) para ordenar.
+    #Ordenar por edad de menor a mayor.
+    donantesFiltradas.sort(key=lambda d: d[1])
+    #Fecha y hora del sistema para el encabezado del reporte.
+    fechaHora = fechaHoy.strftime("%d/%m/%Y %H:%M:%S")
+    titulo = "Mujeres Donantes con Sangre O- Menores de 45 Años"
+    #Construir las filas de la tabla HTML recorriendo las donantes filtradas.
+    filas = ""
+    for donador, edad in donantesFiltradas:
+        nombreCompleto = f"{donador[0][0]} {donador[0][1]} {donador[0][2]}"
+        cedula = donador[1]
+        fechaNacimiento = f"{donador[4][0]:02d}/{donador[4][1]:02d}/{donador[4][2]}"
+        telefono = donador[7]
+        correo = donador[6]
+        filas += f"""
+        <tr>
+            <td>{cedula}</td>
+            <td>{nombreCompleto}</td>
+            <td>{fechaNacimiento}</td>
+            <td>{telefono}</td>
+            <td>{correo}</td>
+        </tr>"""
+    #Si la lista está vacía se muestra un mensaje en lugar de una tabla vacía.
+    filasFinales = filas if donantesFiltradas else '<tr><td colspan="5" class="sinDatos">No hay mujeres donantes O- menores de 45 años registradas.</td></tr>'
+    html = f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <title>{titulo}</title>
+    <style>
+        body {{font-family: Arial, sans-serif; margin: 40px; background-color: #f9f9f9; color: #222;}}
+        h1 {{color: #b30000; text-align: center;}}
+        p {{text-align: center; color: #555;}}
+        table {{width: 100%; border-collapse: collapse; margin-top: 20px; background-color: #fff;}}
+        th {{background-color: #b30000; color: white; padding: 10px; text-align: left;}}
+        td {{padding: 8px 10px; border-bottom: 1px solid #ddd;}}
+        tr:hover {{background-color: #f1f1f1;}}
+        .sinDatos {{text-align: center; color: #888; padding: 20px;}}
+    </style>
+</head>
+<body>
+    <h1>{titulo}</h1>
+    <p>Fecha y hora de generación: {fechaHora}</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Cédula</th>
+                <th>Nombre Completo</th>
+                <th>Fecha de Nacimiento</th>
+                <th>Teléfono</th>
+                <th>Correo</th>
+            </tr>
+        </thead>
+        <tbody>
+            {filasFinales}
+        </tbody>
+    </table>
+</body>
+</html>"""
+    try:
+        with open("reporte_mujeres_o_negativo.html", "w", encoding="utf-8") as archivo:
+            archivo.write(html)
+        return True
+    except Exception:
+        return False
+    
